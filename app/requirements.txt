@@ -1,0 +1,7 @@
+pyspark
+kafka-python
+sqlite-utils
+selenium
+beautifulsoup4
+requests
+pandas
