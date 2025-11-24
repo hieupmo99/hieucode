@@ -75,7 +75,7 @@ if os.path.exists("/.dockerenv") or os.environ.get('DOCKER_ENV'):
     print("Running in Docker - using headless mode")
 
 driver = webdriver.Chrome(service=service, options=chrome_options)
-driver.implicitly_wait(10)
+driver.implicitly_wait(5)
 print("Driver initialized")
 print(f"Driver path: {driver.service.path}")
 driver.get(url)
@@ -84,7 +84,7 @@ driver.get(url)
 try:
     revealed = driver.find_element(By.CLASS_NAME, "hamburger")
     driver.find_element(By.XPATH, "//span[@class='hamburger']").click()
-    WebDriverWait(driver, timeout=10).until(lambda _ : revealed.is_displayed())
+    WebDriverWait(driver, timeout=5).until(lambda _ : revealed.is_displayed())
 except Exception as e:
     print(f"Error: {e}")
 
@@ -109,7 +109,7 @@ paper_count = 0
 for A_link in link_list:
     print(f"Link: {A_link}")
     try:
-        driver.set_page_load_timeout(15)
+        driver.set_page_load_timeout(10)
         driver.get(A_link)
         WebDriverWait(driver, timeout=3).until(lambda _ :(driver.find_element(By.TAG_NAME, "body")).is_displayed())
         page_source = driver.page_source
@@ -169,7 +169,7 @@ if divided_data_batch:
         except sqlite3.Error as e:
             print(f"Error inserting data: {e}")
 
-csv_path = Path("/app/masscrawling.csv")
+csv_path = Path("/Users/op-lt-0378/Documents/hieucode/app/masscrawling.csv")
 if not csv_path.exists():
     with open(csv_path, "w") as f:
         if list_data:
