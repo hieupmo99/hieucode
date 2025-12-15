@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html>
+<head><title>Test Page</title></head>
+<body>
+<div class="DefaultView_title__3-BU8">Create a new comment on an owned video</div>
+
+<h2>Header</h2>
+<table>
+<tr><th>Field</th><th>Data Type</th><th>Description</th></tr>
+<tr><td>Access-Token</td><td>string</td><td>Required</td></tr>
+<tr><td>Content-Type</td><td>string</td><td>Required</td></tr>
+</table>
+
+<h2>Parameters</h2>
+<table>
+<tr><th>Field</th><th>Data Type</th><th>Description</th></tr>
+<tr><td>business_id</td><td>string</td><td>Required</td></tr>
+<tr><td>video_id</td><td>string</td><td>Required</td></tr>
+<tr><td>text</td><td>string</td><td>Required</td></tr>
+</table>
+
+<h2>Response</h2>
+<table>
+<tr><th>Field</th><th>Data Type</th><th>Description</th></tr>
+<tr><td>code</td><td>int</td><td>Response code</td></tr>
+<tr><td>message</td><td>string</td><td>Response message</td></tr>
+</table>
+
+<pre><code class="language-curl">curl -X POST 'https://business-api.tiktok.com/open_api/v1.3/business/comment/create/' \
+-H 'Access-Token: YOUR_ACCESS_TOKEN' \
+-H 'Content-Type: application/json' \
+-d '{
+  "business_id": "1234567890",
+  "video_id": "1234567890123456789",
+  "text": "Great video!"
+}'</code></pre>
+
+</body>
+</html>
+

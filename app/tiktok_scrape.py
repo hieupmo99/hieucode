@@ -62,43 +62,74 @@ class TikTokAPIDocScraperSelenium:
         
         self.driver.set_page_load_timeout(30)
         
-    def get_iframe_content(self, url, wait_time=10):
+    def get_iframe_content(self, url, wait_time=10, max_retries=3):
         """
-        Load page and extract iframe content using Selenium
+        Load page and extract iframe content using Selenium with retry logic
         """
-        try:
-            print(f"Loading page: {url}")
-            self.driver.get(url)
-            
-            # Wait for iframe to load
-            print("Waiting for iframe to load...")
-            iframe = WebDriverWait(self.driver, wait_time).until(
-                EC.presence_of_element_located((By.TAG_NAME, "iframe"))
-            )
-            
-            print("✓ Iframe found!")
-            
-            # Get iframe src
-            iframe_src = iframe.get_attribute('src')
-            print(f"Iframe URL: {iframe_src[:100]}...")
-            
-            # Switch to iframe
-            self.driver.switch_to.frame(iframe)
-            
-            # Wait for content to load
-            time.sleep(2)
-            
-            # Get page source from iframe
-            iframe_html = self.driver.page_source
-            
-            # Switch back to main content
-            self.driver.switch_to.default_content()
-            
-            return iframe_html, iframe_src
-            
-        except Exception as e:
-            print(f"Error loading iframe: {e}")
-            return None, None
+        for attempt in range(max_retries):
+            try:
+                print(f"Loading page: {url}")
+                
+                # Check if driver is still alive
+                try:
+                    _ = self.driver.current_url
+                except Exception:
+                    print("  ⚠ Driver session lost, recreating...")
+                    self.driver.quit()
+                    self.setup_driver()
+                
+                self.driver.get(url)
+                
+                # Wait for iframe to load
+                print("Waiting for iframe to load...")
+                iframe = WebDriverWait(self.driver, wait_time).until(
+                    EC.presence_of_element_located((By.TAG_NAME, "iframe"))
+                )
+                
+                print("✓ Iframe found!")
+                
+                # Get iframe src
+                iframe_src = iframe.get_attribute('src')
+                print(f"Iframe URL: {iframe_src[:100]}...")
+                
+                # Switch to iframe
+                self.driver.switch_to.frame(iframe)
+                
+                # Wait for content to load
+                time.sleep(2)
+                
+                # Get page source from iframe
+                iframe_html = self.driver.page_source
+                
+                # Switch back to main content
+                self.driver.switch_to.default_content()
+                
+                return iframe_html, iframe_src
+                
+            except Exception as e:
+                print(f"  ⚠ Attempt {attempt + 1}/{max_retries} failed: {str(e)[:100]}")
+                
+                if attempt < max_retries - 1:
+                    print(f"  → Retrying in 3 seconds...")
+                    time.sleep(3)
+                    
+                    # Try to recover the driver
+                    try:
+                        self.driver.switch_to.default_content()
+                    except:
+                        pass
+                    
+                    try:
+                        self.driver.quit()
+                    except:
+                        pass
+                    
+                    self.setup_driver()
+                else:
+                    print(f"  ✗ All retry attempts failed")
+                    return None, None
+        
+        return None, None
     
     def get_endpoint_links_from_page(self, page_url):
         """
@@ -185,14 +216,6 @@ class TikTokAPIDocScraperSelenium:
         """
         print(f"  Scraping details...")
         
-        iframe_html, iframe_src = self.get_iframe_content(url)
-        
-        if not iframe_html:
-            print(f"  ✗ Could not load iframe")
-            return None
-        
-        soup = BeautifulSoup(iframe_html, 'html.parser')
-        
         endpoint_data = {
             'endpoint_name': endpoint_text,
             'doc_url': url,
@@ -200,64 +223,83 @@ class TikTokAPIDocScraperSelenium:
             'method': None,
             'headers': [],
             'parameters': [],
-            'response': []
+            'response': [],
+            'scrape_status': 'failed',  # Will be updated to 'success' if scraping works
+            'error_message': None
         }
         
-        # Extract endpoint URL
-        text_content = soup.get_text()
-        
-        # Look for API endpoint URL
-        api_url_pattern = r'https://business-api\.tiktok\.com/open_api/[v\d\./a-zA-Z_]+'
-        matches = re.findall(api_url_pattern, text_content)
-        if matches:
-            endpoint_data['endpoint'] = matches[0]
-        
-        if not endpoint_data['endpoint']:
-            rel_url_pattern = r'/open_api/[v\d\./a-zA-Z_]+'
-            matches = re.findall(rel_url_pattern, text_content)
+        try:
+            iframe_html, iframe_src = self.get_iframe_content(url)
+            
+            if not iframe_html:
+                print(f"  ✗ Could not load iframe")
+                endpoint_data['error_message'] = 'Failed to load iframe after retries'
+                return endpoint_data
+            
+            soup = BeautifulSoup(iframe_html, 'html.parser')
+            
+            # Extract endpoint URL
+            text_content = soup.get_text()
+            
+            # Look for API endpoint URL
+            api_url_pattern = r'https://business-api\.tiktok\.com/open_api/[v\d\./a-zA-Z_]+'
+            matches = re.findall(api_url_pattern, text_content)
             if matches:
-                endpoint_data['endpoint'] = 'https://business-api.tiktok.com' + matches[0]
-        
-        # Extract HTTP method
-        method_keywords = ['POST', 'GET', 'PUT', 'DELETE', 'PATCH']
-        for method in method_keywords:
-            if re.search(rf'\b{method}\b', text_content, re.IGNORECASE):
-                endpoint_data['method'] = method
-                break
-        
-        # Extract tables
-        all_headings = soup.find_all(['h1', 'h2', 'h3', 'h4', 'h5', 'h6'])
-        
-        for heading in all_headings:
-            heading_text = heading.get_text(strip=True).lower()
-            next_table = heading.find_next('table')
+                endpoint_data['endpoint'] = matches[0]
             
-            if not next_table:
-                continue
+            if not endpoint_data['endpoint']:
+                rel_url_pattern = r'/open_api/[v\d\./a-zA-Z_]+'
+                matches = re.findall(rel_url_pattern, text_content)
+                if matches:
+                    endpoint_data['endpoint'] = 'https://business-api.tiktok.com' + matches[0]
             
-            if 'header' in heading_text and not endpoint_data['headers']:
-                endpoint_data['headers'] = self.extract_table_data(next_table)
-                if endpoint_data['headers']:
-                    print(f"    ✓ Extracted {len(endpoint_data['headers'])} headers")
+            # Extract HTTP method
+            method_keywords = ['POST', 'GET', 'PUT', 'DELETE', 'PATCH']
+            for method in method_keywords:
+                if re.search(rf'\b{method}\b', text_content, re.IGNORECASE):
+                    endpoint_data['method'] = method
+                    break
             
-            elif 'parameter' in heading_text and 'response' not in heading_text and not endpoint_data['parameters']:
-                endpoint_data['parameters'] = self.extract_table_data(next_table)
-                if endpoint_data['parameters']:
-                    print(f"    ✓ Extracted {len(endpoint_data['parameters'])} parameters")
+            # Extract tables
+            all_headings = soup.find_all(['h1', 'h2', 'h3', 'h4', 'h5', 'h6'])
             
-            elif 'response' in heading_text and not endpoint_data['response']:
-                endpoint_data['response'] = self.extract_table_data(next_table)
-                if endpoint_data['response']:
-                    print(f"    ✓ Extracted {len(endpoint_data['response'])} response fields")
-        
-        print(f"  ✓ Endpoint: {endpoint_data['endpoint']}")
-        print(f"  ✓ Method: {endpoint_data['method']}")
-        
-        return endpoint_data
+            for heading in all_headings:
+                heading_text = heading.get_text(strip=True).lower()
+                next_table = heading.find_next('table')
+                
+                if not next_table:
+                    continue
+                
+                if 'header' in heading_text and not endpoint_data['headers']:
+                    endpoint_data['headers'] = self.extract_table_data(next_table)
+                    if endpoint_data['headers']:
+                        print(f"    ✓ Extracted {len(endpoint_data['headers'])} headers")
+                
+                elif 'parameter' in heading_text and 'response' not in heading_text and not endpoint_data['parameters']:
+                    endpoint_data['parameters'] = self.extract_table_data(next_table)
+                    if endpoint_data['parameters']:
+                        print(f"    ✓ Extracted {len(endpoint_data['parameters'])} parameters")
+                
+                elif 'response' in heading_text and not endpoint_data['response']:
+                    endpoint_data['response'] = self.extract_table_data(next_table)
+                    if endpoint_data['response']:
+                        print(f"    ✓ Extracted {len(endpoint_data['response'])} response fields")
+            
+            print(f"  ✓ Endpoint: {endpoint_data['endpoint']}")
+            print(f"  ✓ Method: {endpoint_data['method']}")
+            
+            endpoint_data['scrape_status'] = 'success'
+            
+            return endpoint_data
+            
+        except Exception as e:
+            print(f"  ✗ Error: {str(e)[:100]}")
+            endpoint_data['error_message'] = str(e)[:200]
+            return endpoint_data
     
-    def scrape_all_endpoints(self, start_url, delay=2):
+    def scrape_all_endpoints(self, start_url, delay=2, save_interval=10):
         """
-        Main scraping function
+        Main scraping function with progress saving and error recovery
         """
         self.setup_driver()
         
@@ -274,18 +316,44 @@ class TikTokAPIDocScraperSelenium:
             print("="*80 + "\n")
             
             all_data = []
+            failed_count = 0
+            success_count = 0
             
             for i, link_info in enumerate(endpoint_links, 1):
                 print(f"[{i}/{len(endpoint_links)}] {link_info['text']}")
                 
                 endpoint_data = self.extract_endpoint_details(link_info['url'], link_info['text'])
                 
-                if endpoint_data:
-                    all_data.append(endpoint_data)
+                # Always append data, even if failed
+                all_data.append(endpoint_data)
+                
+                if endpoint_data['scrape_status'] == 'success':
+                    success_count += 1
+                else:
+                    failed_count += 1
+                    print(f"  ⚠ Status: FAILED")
+                
+                print()
+                
+                # Save progress periodically
+                if i % save_interval == 0:
+                    print(f"  💾 Saving progress... ({i}/{len(endpoint_links)} endpoints)")
+                    self.save_to_json(all_data, f'tiktok_api_docs_progress_{i}.json')
+                    print(f"  ✓ Progress saved")
                     print()
                 
+                # Add delay between requests
                 if i < len(endpoint_links):
                     time.sleep(delay)
+            
+            # Print final statistics
+            print("\n" + "="*80)
+            print("SCRAPING COMPLETE")
+            print("="*80)
+            print(f"✓ Successfully scraped: {success_count}/{len(endpoint_links)}")
+            if failed_count > 0:
+                print(f"⚠ Failed to scrape: {failed_count}/{len(endpoint_links)}")
+            print()
             
             return all_data
             
@@ -300,35 +368,62 @@ class TikTokAPIDocScraperSelenium:
         print(f"\n✓ JSON data saved to {filename}")
     
     def save_to_excel(self, data, filename='tiktok_api_docs.xlsx'):
-        """Save to Excel with unified metrics"""
-        # Create summary
+        """Save to Excel with unified metrics and failure marking"""
+        # Create summary with status marking
         summary_data = []
         for item in data:
             summary_data.append({
+                'Status': item.get('scrape_status', 'unknown').upper(),
                 'Endpoint Name': item.get('endpoint_name', ''),
                 'Documentation URL': item.get('doc_url', ''),
-                'API Endpoint': item.get('endpoint', ''),
-                'Method': item.get('method', ''),
+                'API Endpoint': item.get('endpoint', 'NOT FOUND'),
+                'Method': item.get('method', 'NOT FOUND'),
                 'Headers Count': len(item.get('headers', [])),
                 'Parameters Count': len(item.get('parameters', [])),
-                'Response Fields Count': len(item.get('response', []))
+                'Response Fields Count': len(item.get('response', [])),
+                'Error Message': item.get('error_message', '')
             })
         
         with pd.ExcelWriter(filename, engine='openpyxl') as writer:
-            pd.DataFrame(summary_data).to_excel(writer, sheet_name='Summary', index=False)
+            # Write summary sheet
+            summary_df = pd.DataFrame(summary_data)
+            summary_df.to_excel(writer, sheet_name='Summary', index=False)
             
-            # Create unified metrics sheets
-            self._create_unified_metrics_sheets(data, writer)
+            # Apply formatting to highlight failed rows
+            workbook = writer.book
+            worksheet = writer.sheets['Summary']
+            
+            from openpyxl.styles import PatternFill
+            red_fill = PatternFill(start_color='FFCCCC', end_color='FFCCCC', fill_type='solid')
+            yellow_fill = PatternFill(start_color='FFFFCC', end_color='FFFFCC', fill_type='solid')
+            green_fill = PatternFill(start_color='CCFFCC', end_color='CCFFCC', fill_type='solid')
+            
+            for row_idx, row in enumerate(summary_df.itertuples(), start=2):
+                if row.Status == 'FAILED':
+                    for col_idx in range(1, len(summary_df.columns) + 1):
+                        worksheet.cell(row=row_idx, column=col_idx).fill = red_fill
+                elif row.Status == 'SUCCESS':
+                    worksheet.cell(row=row_idx, column=1).fill = green_fill
+            
+            # Create unified metrics sheets (only for successful scrapes)
+            successful_data = [item for item in data if item.get('scrape_status') == 'success']
+            if successful_data:
+                self._create_unified_metrics_sheets(successful_data, writer)
             
             # Individual endpoint sheets
             for i, item in enumerate(data, 1):
                 sheet_name = item.get('endpoint_name', f'Endpoint_{i}')[:31]
                 
                 details_data = []
+                details_data.append(['Status', item.get('scrape_status', 'unknown').upper()])
                 details_data.append(['Endpoint Name', item.get('endpoint_name', '')])
                 details_data.append(['Documentation URL', item.get('doc_url', '')])
-                details_data.append(['API Endpoint', item.get('endpoint', '')])
-                details_data.append(['Method', item.get('method', '')])
+                details_data.append(['API Endpoint', item.get('endpoint', 'NOT FOUND')])
+                details_data.append(['Method', item.get('method', 'NOT FOUND')])
+                
+                if item.get('error_message'):
+                    details_data.append(['Error Message', item.get('error_message', '')])
+                
                 details_data.append(['', ''])
                 
                 if item.get('headers'):
@@ -355,6 +450,16 @@ class TikTokAPIDocScraperSelenium:
                 df.to_excel(writer, sheet_name=sheet_name, index=False, header=False)
         
         print(f"✓ Excel data saved to {filename}")
+        
+        # Print failure summary
+        failed_endpoints = [item for item in data if item.get('scrape_status') == 'failed']
+        if failed_endpoints:
+            print(f"\n⚠ Warning: {len(failed_endpoints)} endpoints failed to scrape:")
+            for item in failed_endpoints[:10]:  # Show first 10
+                print(f"  - {item['endpoint_name']}")
+            if len(failed_endpoints) > 10:
+                print(f"  ... and {len(failed_endpoints) - 10} more (see Summary sheet)")
+            print(f"\n  Failed endpoints are highlighted in RED in the Summary sheet")
     
     def _create_unified_metrics_sheets(self, data, writer):
         """Create unified metrics sheets"""
@@ -440,12 +545,24 @@ def main():
     scraper = TikTokAPIDocScraperSelenium(headless=True)
     start_url = "https://business-api.tiktok.com/portal/docs?id=1735713875563521"
     
-    data = scraper.scrape_all_endpoints(start_url, delay=2)
+    # Scrape with progress saving every 10 endpoints
+    data = scraper.scrape_all_endpoints(start_url, delay=2, save_interval=10)
     
     if data:
+        # Calculate statistics
+        total = len(data)
+        successful = len([d for d in data if d.get('scrape_status') == 'success'])
+        failed = len([d for d in data if d.get('scrape_status') == 'failed'])
+        
         print("\n" + "="*80)
-        print(f"SUCCESS: Scraped {len(data)} endpoints")
-        print("="*80 + "\n")
+        print(f"RESULTS: Scraped {total} endpoints")
+        print("="*80)
+        print(f"✓ Successful: {successful}")
+        if failed > 0:
+            print(f"⚠ Failed: {failed}")
+        print()
+        
+        print("Saving data...")
         
         scraper.save_to_json(data)
         scraper.save_to_excel(data)
@@ -453,8 +570,21 @@ def main():
         print("\n" + "="*80)
         print("OUTPUT FILES")
         print("="*80)
-        print("✓ tiktok_api_docs.json")
-        print("✓ tiktok_api_docs.xlsx (with unified metrics)")
+        print("✓ tiktok_api_docs.json - Complete data (includes failed attempts)")
+        print("✓ tiktok_api_docs.xlsx - Excel with multiple sheets:")
+        print("  - Summary: Overview with status indicators")
+        print("    • GREEN = Successfully scraped")
+        print("    • RED = Failed to scrape")
+        print("  - All Headers: Unified list (successful endpoints only)")
+        print("  - All Parameters: Unified list (successful endpoints only)")
+        print("  - All Response Fields: Unified list (successful endpoints only)")
+        print("  - Individual endpoint sheets with full details")
+        
+        if failed > 0:
+            print(f"\n⚠ Note: {failed} endpoints failed to scrape.")
+            print("  Check the Summary sheet for details.")
+            print("  Failed endpoints are highlighted in RED.")
+            print("  You can retry these manually or run the scraper again.")
     else:
         print("\n✗ No data was scraped.")
 

@@ -1,0 +1,24 @@
+# Simple Configuration Example
+# Set global date range, then select APIs by ID
+
+# Global date range - applies to ALL selected APIs
+date_range:
+  start_date: "2024-01-01"
+  end_date: "2024-12-31"
+
+# Option 1: Call all APIs
+call_all_apis: true
+
+# Option 2: Call specific API by ID (uncomment to use)
+# call_all_apis: false
+# api_ids: "business_get"  # Single API ID
+
+# Option 3: Call multiple APIs by ID
+# call_all_apis: false
+# api_ids: ["business_get", "comment_create", "video_list"]
+
+# Checkpoint settings
+checkpoint_interval: 10
+checkpoint_file: "api_call_checkpoint.json"
+resume_from_checkpoint: true
+

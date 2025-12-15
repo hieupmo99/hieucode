@@ -1,0 +1,29 @@
+# TikTok API Caller Configuration
+# Simple configuration: Set global date range, then select APIs by ID
+
+# Global date range - applies ONLY to APIs that have date parameters
+# APIs without date parameters (like POST create/update) will NOT get date range
+date_range:
+  start_date: "2024-01-01"
+  end_date: "2024-12-31"
+
+# API Selection
+# Option 1: Call all APIs (use global date range)
+call_all_apis: true
+
+# Option 2: Call specific APIs by ID (comma-separated or list)
+# api_ids: ["business_get", "comment_create"]
+# api_ids: "business_get"  # Single API
+
+# Option 3: Call APIs matching pattern
+# api_pattern: "*video*"
+
+# Checkpoint settings
+checkpoint_interval: 10  # Save checkpoint every N API calls
+checkpoint_file: "api_call_checkpoint.json"
+resume_from_checkpoint: true
+
+# Crash notification
+notify_on_crash: false
+notification_email: ""  # Optional: email for crash notifications
+
