@@ -1,0 +1,46 @@
+name: Dependency Updates
+
+on:
+  schedule:
+    - cron: '0 0 * * 0'  # Weekly on Sunday
+  workflow_dispatch:
+
+jobs:
+  update-dependencies:
+    name: Check for dependency updates
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+    
+    - name: Install pip-tools
+      run: |
+        pip install pip-tools pip-audit
+    
+    - name: Check for outdated packages
+      run: |
+        pip list --outdated
+    
+    - name: Audit dependencies for vulnerabilities
+      run: |
+        pip install -r requirements.txt
+        pip-audit -r requirements.txt || true
+    
+    - name: Create issue if vulnerabilities found
+      if: failure()
+      uses: actions/github-script@v6
+      with:
+        script: |
+          github.rest.issues.create({
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            title: '⚠️ Security vulnerabilities found in dependencies',
+            body: 'Automated security scan found vulnerabilities. Please review the workflow logs.',
+            labels: ['security', 'dependencies']
+          })

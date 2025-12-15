@@ -1,0 +1,72 @@
+name: Flake8 Linting
+
+on:
+  push:
+    branches: [ main, develop ]
+    paths:
+      - '**.py'
+  pull_request:
+    branches: [ main, develop ]
+    paths:
+      - '**.py'
+
+jobs:
+  flake8:
+    name: Run Flake8
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+    
+    - name: Install Flake8
+      run: |
+        pip install flake8 flake8-docstrings flake8-bugbear flake8-comprehensions
+    
+    - name: Create Flake8 config
+      run: |
+        cat > .flake8 << EOF
+        [flake8]
+        max-line-length = 88
+        extend-ignore = E203, E266, E501, W503
+        exclude =
+            .git,
+            __pycache__,
+            .venv,
+            venv,
+            .idea,
+            .pytest_cache,
+            *.egg-info,
+            build,
+            dist
+        max-complexity = 10
+        per-file-ignores =
+            __init__.py:F401
+        EOF
+    
+    - name: Run Flake8 on all Python files
+      run: |
+        echo "Running Flake8 on entire project..."
+        flake8 . --count --statistics --show-source
+    
+    - name: Run Flake8 on app directory
+      run: |
+        echo "Running Flake8 on app/ directory..."
+        flake8 app/ --count --statistics --format='::error file=%(path)s,line=%(row)d,col=%(col)d::%(code)s: %(text)s'
+    
+    - name: Generate Flake8 report
+      if: always()
+      run: |
+        flake8 app/ --format=html --htmldir=flake8-report || true
+    
+    - name: Upload Flake8 report
+      uses: actions/upload-artifact@v3
+      if: always()
+      with:
+        name: flake8-report
+        path: flake8-report/
