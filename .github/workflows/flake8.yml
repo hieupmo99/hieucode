@@ -65,7 +65,7 @@ jobs:
         flake8 app/ --format=html --htmldir=flake8-report || true
     
     - name: Upload Flake8 report
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       if: always()
       with:
         name: flake8-report
