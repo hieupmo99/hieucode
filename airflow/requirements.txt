@@ -1,0 +1,16 @@
+# Airflow Core
+apache-airflow==2.8.0
+
+# Web scraping
+selenium==4.16.0
+beautifulsoup4==4.12.2
+requests==2.31.0
+
+# Kafka
+kafka-python==2.0.2
+
+# Data processing
+pandas==2.1.4
+
+# Database
+psycopg2-binary==2.9.9

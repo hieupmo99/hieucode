@@ -132,10 +132,102 @@ services:
       KAFKA_BOOTSTRAP: kafka-1:9092,kafka-2:9092,kafka-3:9092
       KAFKA_TOPIC: vnexpress_topic
 
+  # ---------------------
+  # PostgreSQL for Airflow
+  # ---------------------
+  postgres-airflow:
+    image: postgres:15
+    container_name: postgres-airflow
+    environment:
+      POSTGRES_USER: airflow
+      POSTGRES_PASSWORD: airflow
+      POSTGRES_DB: airflow
+    volumes:
+      - postgres-airflow-data:/var/lib/postgresql/data
+    networks:
+      - kafka-net
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "airflow"]
+      interval: 10s
+      retries: 5
+      start_period: 5s
+
+  # ---------------------
+  # Airflow Webserver
+  # ---------------------
+  airflow-webserver:
+    build:
+      context: .
+      dockerfile: ./airflow/Dockerfile
+    container_name: airflow-webserver
+    depends_on:
+      - postgres-airflow
+    environment:
+      AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow@postgres-airflow/airflow
+      AIRFLOW__CORE__EXECUTOR: LocalExecutor
+      AIRFLOW__CORE__DAGS_ARE_PAUSED_AT_CREATION: 'false'
+      AIRFLOW__CORE__LOAD_EXAMPLES: 'false'
+      AIRFLOW__WEBSERVER__EXPOSE_CONFIG: 'true'
+      AIRFLOW__WEBSERVER__SECRET_KEY: 'hieucode_secret_key_12345'
+      AIRFLOW__CORE__FERNET_KEY: 'Zp3K7_Qx9YrXbNm4vCwS1tUaFgHjKlMnOpQrStUvWxY='
+      KAFKA_BOOTSTRAP: kafka-1:9092,kafka-2:9092,kafka-3:9092
+    volumes:
+      - ./dags:/opt/airflow/dags
+      - ./app:/opt/airflow/app
+      - airflow-logs:/opt/airflow/logs
+    ports:
+      - "8081:8080"  # Changed to 8081 to avoid conflict with Kafka UI
+    command: >
+      bash -c "airflow db migrate &&
+               airflow users create --username admin --password admin --firstname Admin --lastname User --role Admin --email admin@example.com || true &&
+               airflow webserver"
+    networks:
+      - kafka-net
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+
+  # ---------------------
+  # Airflow Scheduler
+  # ---------------------
+  airflow-scheduler:
+    build:
+      context: .
+      dockerfile: ./airflow/Dockerfile
+    container_name: airflow-scheduler
+    depends_on:
+      - postgres-airflow
+      - airflow-webserver
+    environment:
+      AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow@postgres-airflow/airflow
+      AIRFLOW__CORE__EXECUTOR: LocalExecutor
+      AIRFLOW__CORE__DAGS_ARE_PAUSED_AT_CREATION: 'false'
+      AIRFLOW__CORE__LOAD_EXAMPLES: 'false'
+      AIRFLOW__CORE__FERNET_KEY: 'Zp3K7_Qx9YrXbNm4vCwS1tUaFgHjKlMnOpQrStUvWxY='
+      KAFKA_BOOTSTRAP: kafka-1:9092,kafka-2:9092,kafka-3:9092
+    volumes:
+      - ./dags:/opt/airflow/dags
+      - ./app:/opt/airflow/app
+      - airflow-logs:/opt/airflow/logs
+    command: airflow scheduler
+    networks:
+      - kafka-net
+    healthcheck:
+      test: ["CMD", "airflow", "jobs", "check", "--job-type", "SchedulerJob"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+
 volumes:
   kafka-data-1:
   kafka-data-2:
   kafka-data-3:
+  postgres-airflow-data:
+  airflow-logs:
 
 networks:
   kafka-net:
