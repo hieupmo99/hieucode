@@ -3,13 +3,7 @@ name: Build and Deploy Pipeline
 on:
   push:
     branches: [main]
-    paths:
-      - 'app/**'
-      - 'dags/**'
-      - 'airflow/**'
-      - 'spark/**'
-      - 'docker-compose.yml'
-      - '.github/workflows/build-deploy.yml'
+    # Removed paths filter - now builds on every commit to main
   workflow_dispatch:
     inputs:
       run_crawler:
