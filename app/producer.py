@@ -3,6 +3,7 @@ import os
 from kafka import KafkaProducer
 
 # Determine sensible defaults depending on runtime (local vs Docker)
+# Updated: 2025-12-16 - Trigger build-deploy workflow
 DOCKER_ENV = os.environ.get("DOCKER_ENV")
 DEFAULT_BOOTSTRAP_LOCAL = "localhost:19092,localhost:29092,localhost:39092"
 DEFAULT_BOOTSTRAP_DOCKER = "kafka-1:9092,kafka-2:9092,kafka-3:9092"
@@ -14,6 +15,7 @@ KAFKA_BOOTSTRAP = os.environ.get(
 TOPIC = os.environ.get("KAFKA_TOPIC", "vnexpress_topic")
 
 _producer = None
+
 
 def _get_producer() -> KafkaProducer:
     """
