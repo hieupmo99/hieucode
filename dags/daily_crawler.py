@@ -30,7 +30,7 @@ dag = DAG(
     'vnexpress_daily_crawler',
     default_args=default_args,
     description='Crawl VnExpress articles daily',
-    schedule_interval='0 6 * * *',  # Every day at 6 AM
+    schedule_interval='0 4 * * *',  # Every day at 11 AM GMT+7 (4 AM UTC)
     catchup=False,
     tags=['crawler', 'vnexpress', 'daily'],
 )

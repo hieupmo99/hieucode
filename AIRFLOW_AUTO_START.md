@@ -52,7 +52,7 @@ All three tasks run **in parallel** for faster startup, then the DAG proceeds to
 ## Usage
 
 ### Automatic Execution (Scheduled)
-The DAG runs automatically every day at 6:00 AM (schedule: `'0 6 * * *'`).
+The DAG runs automatically every day at 11:00 AM GMT+7 (schedule: `'0 4 * * *'` in UTC).
 
 ### Manual Trigger
 
@@ -185,8 +185,9 @@ docker exec airflow-scheduler python /opt/airflow/dags/daily_crawler.py
 ### Change Schedule:
 Edit `/Users/op-lt-0378/Documents/hieucode/dags/daily_crawler.py`:
 ```python
-schedule_interval='0 6 * * *',  # Change time here (cron format)
+schedule_interval='0 4 * * *',  # 11 AM GMT+7 (4 AM UTC) - Change time here (cron format)
 ```
+Note: Airflow uses UTC time. To set local time (GMT+7), subtract 7 hours from desired time.
 
 ### Adjust Wait Times:
 If services need more time to start, increase sleep times in the service startup functions:
@@ -214,7 +215,7 @@ When you trigger the DAG, the dashboard will reflect service status changes auto
 ✅ **Reliable**: Services are checked and started every time  
 ✅ **Parallel Startup**: All services start simultaneously for speed  
 ✅ **Error Recovery**: Health checks with retry logic ensure reliability  
-✅ **Scheduled**: Runs daily at 6 AM without intervention  
+✅ **Scheduled**: Runs daily at 11 AM GMT+7 without intervention  
 ✅ **Manual Override**: Can still trigger manually anytime  
 
 ## Next Steps

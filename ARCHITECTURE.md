@@ -263,7 +263,7 @@ CREATE TABLE IF NOT EXISTS articles (
 #### `dags/daily_crawler.py` ⭐ AUTOMATION DAG
 **Purpose**: Automated daily crawling workflow with service auto-start
 
-**DAG Schedule**: `'0 6 * * *'` (Every day at 6:00 AM)
+**DAG Schedule**: `'0 4 * * *'` (Every day at 11:00 AM GMT+7 / 4:00 AM UTC)
 
 **Task Flow**:
 ```
@@ -553,7 +553,7 @@ exec "$@"
 ```
 1. USER TRIGGERS
    ├─ Manual: Dashboard → Click "Start Crawler"
-   ├─ Automatic: Airflow DAG runs at 6 AM
+   ├─ Automatic: Airflow DAG runs at 11 AM GMT+7 (4 AM UTC)
    └─ Command: docker exec crawler python mass_crawling.py
 
 2. CRAWLER (mass_crawling.py)
@@ -696,7 +696,7 @@ daily_crawler.py
     ├─ Controls: Docker containers via docker socket
     ├─ Executes: mass_crawling.py in crawler container
     ├─ Checks: Kafka health, Spark processing
-    └─ Schedule: Cron '0 6 * * *' (6 AM daily)
+    └─ Schedule: Cron '0 4 * * *' (11 AM GMT+7 / 4 AM UTC daily)
 ```
 
 ### **Dashboard Dependencies**:
@@ -722,7 +722,7 @@ dashboard_enhanced.html
 ### **Scenario 1: Automatic Daily Crawl**
 
 ```
-06:00 AM → Airflow DAG triggers
+11:00 AM GMT+7 → Airflow DAG triggers
     ↓
 daily_crawler.py executes:
     1. start_kafka_if_needed()     → Ensures Kafka running
