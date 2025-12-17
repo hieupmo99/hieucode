@@ -144,11 +144,38 @@ jobs:
         docker compose down -v
         echo "✅ Cleanup complete"
 
-  # Job 3: Notify Completion
+  # Job 3: Deploy to Local Production
+  deploy-production:
+    name: Deploy to Local Production
+    runs-on: self-hosted
+    needs: [build-images, deploy-test]
+    if: ${{ needs.build-images.result == 'success' && needs.deploy-test.result == 'success' }}
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Deploy to Production Folder
+      run: |
+        echo "🚀 Deploying to ~/Documents/GitHub/action/..."
+        cd ~/Documents/hieucode
+        ./scripts/deploy.sh
+        echo "✅ Deployment completed!"
+    
+    - name: Verify Deployment
+      run: |
+        echo "🔍 Verifying deployment..."
+        ls -la ~/Documents/GitHub/action/
+        echo ""
+        echo "✅ Files deployed successfully!"
+        echo "📊 Dashboard: http://localhost:5000"
+        echo "🌬️  Airflow: http://localhost:8081"
+
+  # Job 4: Notify Completion
   notify:
     name: Notify Deployment Status
     runs-on: ubuntu-latest
-    needs: [build-images, deploy-test]
+    needs: [build-images, deploy-test, deploy-production]
     if: always()
     
     steps:
@@ -159,18 +186,18 @@ jobs:
         echo "============================================"
         echo ""
         echo "Build Status: ${{ needs.build-images.result }}"
-        echo "Deploy Status: ${{ needs.deploy-test.result }}"
+        echo "Deploy Test Status: ${{ needs.deploy-test.result }}"
+        echo "Deploy Production Status: ${{ needs.deploy-production.result }}"
         echo ""
         
-        if [ "${{ needs.build-images.result }}" == "success" ] && [ "${{ needs.deploy-test.result }}" == "success" ]; then
+        if [ "${{ needs.build-images.result }}" == "success" ] && [ "${{ needs.deploy-test.result }}" == "success" ] && [ "${{ needs.deploy-production.result }}" == "success" ]; then
           echo "✅ All jobs completed successfully!"
           echo ""
-          echo "🎯 Next Steps:"
-          echo "1. Docker images are built and tested"
-          echo "2. Pull latest code: git pull"
-          echo "3. Rebuild locally: docker compose build"
-          echo "4. Start pipeline: ./pipeline.sh start"
-          echo "5. Access Airflow: http://localhost:8081"
+          echo "🎯 Deployment Complete:"
+          echo "1. ✅ Images built and tested in GitHub Actions"
+          echo "2. ✅ Code deployed to ~/Documents/GitHub/action/"
+          echo "3. 📊 Dashboard running at http://localhost:5000"
+          echo "4. 🌬️  Airflow running at http://localhost:8081"
         else
           echo "⚠️  Some jobs failed. Check logs above."
         fi
