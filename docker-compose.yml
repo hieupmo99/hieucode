@@ -175,6 +175,7 @@ services:
       - ./dags:/opt/airflow/dags
       - ./app:/opt/airflow/app
       - airflow-logs:/opt/airflow/logs
+      - /var/run/docker.sock:/var/run/docker.sock  # Docker socket for service management
     ports:
       - "8081:8080"  # Changed to 8081 to avoid conflict with Kafka UI
     command: >
@@ -212,6 +213,7 @@ services:
       - ./dags:/opt/airflow/dags
       - ./app:/opt/airflow/app
       - airflow-logs:/opt/airflow/logs
+      - /var/run/docker.sock:/var/run/docker.sock  # Docker socket for service management
     command: airflow scheduler
     networks:
       - kafka-net
