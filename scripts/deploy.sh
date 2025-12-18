@@ -86,10 +86,16 @@ fi
 
 # Update Docker containers if they're running
 cd "$SOURCE_DIR"
-if docker ps | grep -q "kafka-1"; then
+if docker ps 2>/dev/null | grep -q "kafka-1"; then
     echo "🐳 Updating Docker containers..."
-    docker-compose up -d --no-deps --build crawler spark-master
-    echo "✅ Docker containers updated"
+    if docker-compose up -d --no-deps --build crawler spark 2>&1; then
+        echo "✅ Docker containers updated"
+    else
+        echo "⚠️  Warning: Docker container update had issues (this is non-critical)"
+        echo "   You may need to restart containers manually with: docker-compose restart crawler spark"
+    fi
+else
+    echo "ℹ️  Docker containers not running, skipping container update"
 fi
 
 echo ""
