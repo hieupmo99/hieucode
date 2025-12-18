@@ -26,7 +26,7 @@ jobs:
     
     - name: Install Flake8
       run: |
-        pip install flake8 flake8-docstrings flake8-bugbear flake8-comprehensions
+        pip install flake8 flake8-docstrings flake8-bugbear flake8-comprehensions flake8-html
     
     - name: Create Flake8 config
       run: |
@@ -62,11 +62,22 @@ jobs:
     - name: Generate Flake8 report
       if: always()
       run: |
+        mkdir -p flake8-report
         flake8 app/ --format=html --htmldir=flake8-report || true
+    
+    - name: Check if report was generated
+      id: check_report
+      if: always()
+      run: |
+        if [ -d "flake8-report" ] && [ "$(ls -A flake8-report)" ]; then
+          echo "report_exists=true" >> $GITHUB_OUTPUT
+        else
+          echo "report_exists=false" >> $GITHUB_OUTPUT
+        fi
     
     - name: Upload Flake8 report
       uses: actions/upload-artifact@v4
-      if: always()
+      if: always() && steps.check_report.outputs.report_exists == 'true'
       with:
         name: flake8-report
         path: flake8-report/
